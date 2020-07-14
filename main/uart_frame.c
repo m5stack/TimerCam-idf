@@ -19,16 +19,26 @@
 #define PACK_SECOND_BYTE 0x55
 
 volatile frame_state_n frame_state;
-QueueHandle_t uart_buffer_quenue;
 static QueueHandle_t uart_queue = NULL;
+static QueueHandle_t uart_buffer_queue = NULL;
 static SemaphoreHandle_t uart_lock = NULL;
 
 void uart_frame_task(void *arg);
+void uart_frame_send_task(void *arg);
 
 frame_fun frame_callback = NULL;
 
+typedef struct _UartFrame_t {
+    bool free;
+    uint8_t* frame;
+    uint32_t len;
+    /* data */
+} UartFrame_t;
+
+
 void uart_init() {
     uart_lock = xSemaphoreCreateMutex();
+    uart_buffer_queue = xQueueCreate(10, sizeof(UartFrame_t));
     const uart_config_t uart_config = {
         .baud_rate = BAUD_RATE,
         .data_bits = UART_DATA_8_BITS,
@@ -40,11 +50,25 @@ void uart_init() {
     uart_set_pin(UART_NUM_0, 1, 3, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     uart_driver_install(UART_NUM_0, RX_BUF_SIZE, TX_BUF_SIZE, UART_QUEUE_LENGTH, &uart_queue, ESP_INTR_FLAG_LOWMED);
     uart_set_rx_timeout(UART_NUM_0, 2);
-    xTaskCreatePinnedToCore(uart_frame_task, "uart_queue_task", 4 * 1024, NULL, 1, NULL, 1);
+    xTaskCreatePinnedToCore(uart_frame_task, "uart_queue_task", 4 * 1024, NULL, 2, NULL, 1);
+    xTaskCreatePinnedToCore(uart_frame_send_task, "uart_frame_send_task", 4 * 1024, NULL, 2, NULL, 1);
 }
 
 void uart_set_cb(frame_fun cb_in) {
     frame_callback = cb_in;
+}
+
+void uart_frame_send_task(void *arg) {
+    UartFrame_t frame;
+    for (;;) {
+        xQueueReceive(uart_buffer_queue, &frame, portMAX_DELAY);
+        uart_wait_tx_done(UART_NUM_0, portMAX_DELAY);
+        uart_write_bytes(UART_NUM_0, (const char *)frame.frame, frame.len);
+        if (frame.free) {
+            free(frame.frame);
+        }
+    }
+    vTaskDelete(NULL);
 }
 
 void uart_frame_task(void *arg) {
@@ -104,8 +128,8 @@ void uart_frame_task(void *arg) {
     vTaskDelete(NULL);
 }
 
-void uart_frame_send(uint8_t cmd, const uint8_t* frame, int len, bool wait_finish) {
-    int out_len = 9 + len;
+void uart_frame_send(uint8_t cmd, const uint8_t* frame, uint32_t len, bool wait_finish) {
+    uint32_t out_len = 9 + len;
     uint8_t* out_buf = (uint8_t *)malloc(sizeof(uint8_t) * out_len);
 
     out_buf[0] = PACK_FIRST_BYTE;
@@ -124,13 +148,16 @@ void uart_frame_send(uint8_t cmd, const uint8_t* frame, int len, bool wait_finis
     }
     out_buf[out_len - 1] = xor;
 
-    xSemaphoreTake(uart_lock, portMAX_DELAY);
-    uart_wait_tx_done(UART_NUM_0, portMAX_DELAY);
-    uart_write_bytes(UART_NUM_0, (const char *)out_buf, out_len);
-    xSemaphoreGive(uart_lock);
-
     if (wait_finish) {
-        uart_wait_tx_done(UART_NUM_0, portMAX_DELAY);
+        while (uxQueueMessagesWaiting(uart_buffer_queue)) {
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
     }
-    free(out_buf);
+
+    UartFrame_t uart_frame;
+    uart_frame.frame = out_buf;
+    uart_frame.len = out_len;
+    uart_frame.free = true;
+
+    xQueueSend(uart_buffer_queue, &uart_frame, portMAX_DELAY);
 }

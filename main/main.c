@@ -224,6 +224,12 @@ void start_uart_server(void) {
 
         _jpg_buf_len = fb->len;
         _jpg_buf = fb->buf;
+
+        if (!(_jpg_buf[_jpg_buf_len - 1] != 0xd9 || _jpg_buf[_jpg_buf_len - 2] != 0xd9)) {
+            esp_camera_fb_return(fb);
+            continue;
+        }
+
         uart_frame_send(kImage, _jpg_buf, _jpg_buf_len, true);
         esp_camera_fb_return(fb);
 

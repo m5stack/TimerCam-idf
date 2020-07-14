@@ -24,6 +24,6 @@ extern volatile frame_state_n frame_state;
 extern void uart_init();
 extern void uart_frame_task(void *arg);
 extern void uart_set_cb(frame_fun cb_in);
-void uart_frame_send(uint8_t cmd, const uint8_t* frame, int len, bool wait_finish);
+void uart_frame_send(uint8_t cmd, const uint8_t* frame, uint32_t len, bool wait_finish);
 
 #endif
