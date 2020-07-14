@@ -21,12 +21,14 @@
 volatile frame_state_n frame_state;
 QueueHandle_t uart_buffer_quenue;
 static QueueHandle_t uart_queue = NULL;
+static SemaphoreHandle_t uart_lock = NULL;
 
 void uart_frame_task(void *arg);
 
 frame_fun frame_callback = NULL;
 
 void uart_init() {
+    uart_lock = xSemaphoreCreateMutex();
     const uart_config_t uart_config = {
         .baud_rate = BAUD_RATE,
         .data_bits = UART_DATA_8_BITS,
@@ -64,22 +66,20 @@ void uart_frame_task(void *arg) {
                     }
 
                     int len = (buf[2] << 24) | (buf[3] << 16) | (buf[4] << 8) | buf[5];
-                    if (len != (xEvent.size - 6)) {
+                    if (len != (xEvent.size - 7)) {
                         break ;
                     }
 
                     int xor_result = 0;
-                    for (int i = 0; i < xEvent.size - 1; i++) {
+                    for (int i = 0; i < xEvent.size; i++) {
                         xor_result = xor_result ^ buf[i];
                     }
 
-                    if (xor_result != buf[xEvent.size - 1]) {
+                    if (xor_result != 0) {
                         break ;
                     }
-
-                    uart_frame_send(buf[6], &buf[7], len - 2, false);
                     if (frame_callback != NULL) {
-                        frame_callback(buf[6], &buf[7], len - 2);
+                        frame_callback(buf[7], &buf[8], len - 2);
                     }
 
                     break;
@@ -105,25 +105,29 @@ void uart_frame_task(void *arg) {
 }
 
 void uart_frame_send(uint8_t cmd, const uint8_t* frame, int len, bool wait_finish) {
-    uint8_t* out_buf = (uint8_t *)malloc(sizeof(uint8_t) * len + 8);
+    int out_len = 9 + len;
+    uint8_t* out_buf = (uint8_t *)malloc(sizeof(uint8_t) * out_len);
+
     out_buf[0] = PACK_FIRST_BYTE;
     out_buf[1] = PACK_SECOND_BYTE;
-    int out_len = 2 + 4 + 1 + len + 1;
-    out_buf[2] = (out_len - 6) >> 24;
-    out_buf[3] = (out_len - 6) >> 16;
-    out_buf[4] = (out_len - 6) >> 8;
-    out_buf[5] = (out_len - 6);
-    out_buf[6] = cmd;
-    memcpy(&out_buf[7], frame, len);
+    out_buf[2] = (out_len - 7) >> 24;
+    out_buf[3] = (out_len - 7) >> 16;
+    out_buf[4] = (out_len - 7) >> 8;
+    out_buf[5] = (out_len - 7);
+    out_buf[6] = 0x00 ^ out_buf[2] ^ out_buf[3] ^ out_buf[4] ^ out_buf[5];
+    out_buf[7] = cmd;
+    memcpy(&out_buf[8], frame, len);
 
     int xor = 0x00;
-    for (int i = 0; i < out_len - 1; i++) {
+    for (uint32_t i = 0; i < out_len - 1; i++) {
         xor = out_buf[i] ^ xor;
     }
     out_buf[out_len - 1] = xor;
 
+    xSemaphoreTake(uart_lock, portMAX_DELAY);
     uart_wait_tx_done(UART_NUM_0, portMAX_DELAY);
     uart_write_bytes(UART_NUM_0, (const char *)out_buf, out_len);
+    xSemaphoreGive(uart_lock);
 
     if (wait_finish) {
         uart_wait_tx_done(UART_NUM_0, portMAX_DELAY);

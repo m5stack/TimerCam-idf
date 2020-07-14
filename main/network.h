@@ -1,6 +1,20 @@
 #ifndef _TIMERCAM_NETWORK_H_
 #define _TIMERCAM_NETWORK_H_
 
-extern void wifi_init_sta(void);
-extern void wifi_init_ap(void);
+typedef enum {
+    CONNECTING,
+    CONNECT_FAIL,
+    CONNECT_SUCCESS,
+} WifiConnectStatus_t;
+
+void wifi_init_sta(const char* ssid, const char* pwd);
+
+WifiConnectStatus_t wifi_wait_connect(int32_t timeout);
+
+void wifi_init_ap(void);
+
+int GetWifiConnectStatus();
+
+uint32_t GetWifiIP();
+
 #endif

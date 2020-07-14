@@ -1,0 +1,123 @@
+#pragma once
+
+#include "nvs_flash.h"
+#include "protocol.h"
+
+/* Define ------------------------------------------------------------------- */
+// pin config
+//#define CAM_PIN_PWDN    -1 //power down is not used
+#define CAM_PIN_RESET   15 //software reset will be performed
+#define CAM_PIN_XCLK    27
+#define CAM_PIN_VSYNC   22
+#define CAM_PIN_PCLK    21
+#define CAM_PIN_HREF    26
+
+#define CAM_PIN_SIOC    23
+#define CAM_PIN_SIOD    25
+
+#define CAM_PIN_D7      19
+#define CAM_PIN_D6      36
+#define CAM_PIN_D5      18
+#define CAM_PIN_D4      39
+#define CAM_PIN_D3      5
+#define CAM_PIN_D2      34
+#define CAM_PIN_D1      35
+#define CAM_PIN_D0      32
+
+#define CAM_XCLK_FREQ   20000000
+
+#define CAM_PIN_TX 4
+#define CAM_PIN_RX 13
+
+#define CAMERA_LED_GPIO 2
+
+// cmd list
+typedef enum {
+    kImage = 0x00,
+
+// cam config
+    kFrameSize,
+    kQuality,
+    kContrast,
+    kBrightness,
+    kSaturation,
+    kGainceiling,
+    kColorbar,
+    kAwb,
+    kAgc,
+    kAec,
+    kHmirror,
+    kVflip,
+    kAwbGain,
+    kAgcGain,
+    kAecValue,
+    kAec2,
+    kDcw,
+    kBpc,
+    kWpc,
+    kRawGma,
+    kLenc,
+    kSpecialEffect,
+    kWbMode,
+    kAeLevel,
+    kCamCmdEnd,
+
+// usr cmd
+    kSetDeviceMode,
+    kGetDeviceMode,
+    kSaveDeviceConfig,
+    
+    kGetCamConfig,
+    kSaveCamConfig,
+
+    kSetWiFi,
+    kGetWifiSSID,
+    kGetWifiIP,
+    kGetWifiState,
+
+
+    kTimingTime,
+
+    kErrorOccur,
+} CmdList_t;
+
+
+// mod config
+#define SSID_MAX_LEN 36
+#define PWD_MAX_LEN 36
+
+typedef enum {
+    kWifiSta,
+    kUart,
+    kTiming
+} CamMode_t;
+
+typedef struct _timer_cam_config {
+    uint8_t mode;
+    char wifi_ssid[SSID_MAX_LEN];
+    char wifi_pwd[PWD_MAX_LEN];
+    int TimingTime;
+} TimerCamConfig_t;
+
+// default wifi connect
+#define ESP_WIFI_SSID "cam"
+#define ESP_WIFI_PASS "12345678"
+
+
+void InitTimerCamConfig();
+
+void SaveTimerCamConfig();
+
+CamMode_t GetDeviceMode();
+
+bool GetWifiConfig(char *ssid, char *pwd);
+
+uint8_t* GetCamConfig(int *length);
+
+void SaveCamConfig();
+
+bool UpdateDeviceMode(CamMode_t mode);
+
+bool UpdateWifiConfig(const char *ssid, const char *pwd);
+
+char* GetWifiSSID();

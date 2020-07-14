@@ -9,7 +9,7 @@
 #include "freertos/task.h"
 #include "driver/ledc.h"
 #include "esp_err.h"
-#include "config.h"
+#include "timer_cam_config.h"
 
 #define LEDC_HS_TIMER           LEDC_TIMER_2
 #define LEDC_HS_MODE            LEDC_HIGH_SPEED_MODE
