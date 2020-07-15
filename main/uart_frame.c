@@ -60,10 +60,15 @@ void uart_set_cb(frame_fun cb_in) {
 
 void uart_frame_send_task(void *arg) {
     UartFrame_t frame;
+    char end_bytes[] = {0xa5, 0xa5, 0xa5, 0xa5, 0xa5};
+    
     for (;;) {
         xQueueReceive(uart_buffer_queue, &frame, portMAX_DELAY);
         uart_wait_tx_done(UART_NUM_0, portMAX_DELAY);
         uart_write_bytes(UART_NUM_0, (const char *)frame.frame, frame.len);
+        // insert end char in the frame end, 552 will lost data in 150K baud
+        uart_wait_tx_done(UART_NUM_0, portMAX_DELAY);
+        uart_write_bytes(UART_NUM_0, end_bytes, 5);
         if (frame.free) {
             free(frame.frame);
         }
