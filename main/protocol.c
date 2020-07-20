@@ -46,11 +46,13 @@ uint8_t* DealConfigMsg(int cmd_in, const uint8_t* data, int len, int *out_len) {
             *out_len = 1;
             return respond_buff;
         }
+
     }
 
     switch (cmd_in) {
         case kSetDeviceMode:
             UpdateDeviceMode(data[0]);
+            SaveTimerCamConfig();
             goto config_no_respond;
             break;
 
@@ -76,6 +78,7 @@ uint8_t* DealConfigMsg(int cmd_in, const uint8_t* data, int len, int *out_len) {
         case kSetWiFi:
             run_success = DealWifiData(data, len);
             if (run_success) {
+                SaveTimerCamConfig();
                 result[0] = 1;
             } else {
                 result[0] = 0;

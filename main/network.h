@@ -5,6 +5,7 @@ typedef enum {
     CONNECTING,
     CONNECT_FAIL,
     CONNECT_SUCCESS,
+    NOT_CONNECT,
 } WifiConnectStatus_t;
 
 void wifi_init_sta(const char* ssid, const char* pwd);

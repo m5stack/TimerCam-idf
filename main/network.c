@@ -12,7 +12,7 @@
 #define ESP_WIFI_AP_PASS      ""
 #define MAX_STA_CONN       1
 
-static EventGroupHandle_t wifi_event_group;
+static EventGroupHandle_t wifi_event_group = NULL;
 static ip4_addr_t ip_addr;
 
 const int CONNECTED_BIT = BIT0;
@@ -120,6 +120,10 @@ void wifi_init_sta(const char* ssid, const char* pwd)
 
 
 int GetWifiConnectStatus() {
+    if (wifi_event_group == NULL) {
+        return NOT_CONNECT;
+    }
+    
     EventBits_t bits = xEventGroupGetBits(wifi_event_group);
     if (bits & CONNECTED_BIT) {
         return CONNECT_SUCCESS;
