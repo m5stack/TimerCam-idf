@@ -154,10 +154,26 @@ esp_err_t test_httpd_handler(httpd_req_t *req) {
     
     int respond_len = 0;
     uint8_t* respond_buff;
+    bool restart = false;
+    
+    if (cmd == kSetDeviceMode && GetDeviceMode() != value) {
+        restart = true;
+    }
+
     respond_buff = DealConfigMsg(cmd, (uint8_t *)&value, 2, &respond_len);
-    httpd_resp_send(req, (char *)respond_buff, respond_len);
+    uint8_t *buff = (uint8_t *)calloc(respond_len + 1, sizeof(uint8_t));
+    memcpy(&buff[1], respond_buff, respond_len);
+    buff[0] = cmd | 0x80;
+    httpd_resp_send(req, (char *)buff, respond_len + 1);
+    
+    if (restart) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+        esp_restart();
+    }
 
     free(buf);
+    free(buff);
+    
     return ESP_OK;
 
 decode_fail:
@@ -248,9 +264,22 @@ void start_uart_server(void) {
     last_frame = 0;
 }
 
+bool restart = false;
+
+void frame_post_callback(uint8_t cmd) {
+    if (restart && (cmd == (kSetDeviceMode | 0x80))) {
+        esp_restart();
+    }
+}
+
 void get_uart_data(int cmd_in, const uint8_t* data, int len) {
     int respond_len = 0;
     uint8_t* respond_buff;
+    
+    if (cmd_in == kSetDeviceMode || GetDeviceMode() != data[0]) {
+        restart = true;
+    }
+
     respond_buff = DealConfigMsg(cmd_in, data, len, &respond_len);
     uart_frame_send(cmd_in | 0x80, respond_buff, respond_len, false);
 }
@@ -302,7 +331,7 @@ void app_main()
         char wifi_ssid[36], wifi_pwd[36];
         for (;;) {
             if (GetWifiConfig(wifi_ssid, wifi_pwd)) {
-                wifi_init_sta(ESP_WIFI_SSID, ESP_WIFI_PASS);
+                wifi_init_sta(wifi_ssid, wifi_pwd);
                 wifi_wait_connect(portMAX_DELAY);
                 start_webserver();
                 break;

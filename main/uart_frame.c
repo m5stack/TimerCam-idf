@@ -32,9 +32,11 @@ typedef struct _UartFrame_t {
     bool free;
     uint8_t* frame;
     uint32_t len;
-    /* data */
 } UartFrame_t;
 
+void __attribute__((weak)) frame_post_callback(uint8_t cmd) {
+
+}
 
 void uart_init() {
     uart_lock = xSemaphoreCreateMutex();
@@ -69,6 +71,8 @@ void uart_frame_send_task(void *arg) {
         // insert end char in the frame end, 552 will lost data in 150K baud
         uart_wait_tx_done(UART_NUM_0, portMAX_DELAY);
         uart_write_bytes(UART_NUM_0, end_bytes, 5);
+        uart_wait_tx_done(UART_NUM_0, portMAX_DELAY);
+        frame_post_callback(frame.frame[7]);
         if (frame.free) {
             free(frame.frame);
         }
@@ -166,3 +170,4 @@ void uart_frame_send(uint8_t cmd, const uint8_t* frame, uint32_t len, bool wait_
 
     xQueueSend(uart_buffer_queue, &uart_frame, portMAX_DELAY);
 }
+
