@@ -1,5 +1,6 @@
 #include "bmm8563.h"
 #include "driver/i2c.h"
+#include <string.h>
 
 #undef ESP_ERROR_CHECK
 #define ESP_ERROR_CHECK(x)   do { esp_err_t rc = (x); if (rc != ESP_OK) { ESP_LOGE("err", "esp_err_t = %d, line = %d", rc, __LINE__); } } while(0);
@@ -58,8 +59,6 @@ uint8_t i2c_read(uint8_t slave_addr, uint8_t addr, uint8_t* buf, uint8_t len) {
     return 0;
 }
 
-
-
 static uint8_t byte2BCD(uint8_t data) {
     return ((data / 10) << 4) + data % 10;
 }
@@ -72,6 +71,7 @@ void bm8563_init() {
     i2c_init();
     i2c_write_byte(0x51, 0x00, 0x00);
     i2c_write_byte(0x51, 0x01, 0x00);
+    i2c_write_byte(0x51, 0x0D, 0x00);
 }
 
 void bm8563_setTime(rtc_date_t* data) {
@@ -103,52 +103,89 @@ void bm8563_getTime(rtc_date_t* data) {
 }
 
 // -1 :disable
-void bm8563_setAE(int8_t minute, int8_t hour, int8_t day, int8_t week) {
+void bm8563_setDateIRQ(int8_t minute, int8_t hour, int8_t day, int8_t week) {
+    uint8_t irq_enable = false;
     uint8_t out_buf[4] = { 0x80, 0x80, 0x80, 0x80 };
     if(minute >= 0) {
+        irq_enable = true;
         out_buf[0] = byte2BCD(minute) & 0x7f;
     }
 
     if(hour >= 0) {
+        irq_enable = true;
         out_buf[1] = byte2BCD(hour) & 0x3f;
     }
 
     if(day >= 0) {
+        irq_enable = true;
         out_buf[2] = byte2BCD(day) & 0x3f;
     }
 
     if(week >= 0) {
+        irq_enable = true;
         out_buf[3] = byte2BCD(week) & 0x07;
     }
 
-    i2c_write(0x51, 0x09, out_buf, 4);
-}
-
-// type: 0, 4096hz, 1: 64HZ, 2: 1HZ, 3: 1/60HZ
-void bm8563_setTE(uint8_t enable, uint8_t type, uint8_t value) {
-    uint8_t out_buf[2];
-    if (enable) {
-        out_buf[0] = 0x80;
+    uint8_t reg_value = 0;
+    i2c_read(0x51, 0x01, &reg_value, 1);
+    if (irq_enable) {
+        reg_value |= (1 << 1);
     } else {
-        out_buf[0] = 0x00;
+        reg_value &= ~(1 << 1);
     }
 
-    out_buf[0] = out_buf[0] | (type & 0x03);
-    out_buf[1] = value;
-    i2c_write(0x51, 0x0e, out_buf, 2);
+    i2c_write(0x51, 0x09, out_buf, 4);
+    i2c_write(0x51, 0x01, &reg_value, 1);
 }
 
-uint8_t bm8563_getTEValue() {
-    uint8_t data;
-    i2c_read(0x51, 0x0f, &data, 1);
-    return data;
+// -1: disable
+int16_t bm8563_setTimerIRQ(int16_t value) {
+    uint8_t reg_value = 0;
+    i2c_read(0x51, 0x01, &reg_value, 1);
+
+    if (value < 0) {
+        reg_value &= ~(1 << 0);
+        i2c_write(0x51, 0x01, &reg_value, 1);
+        reg_value = 0x03;
+        i2c_write(0x51, 0x0E, &reg_value, 1);
+        return -1;
+    }
+
+    uint8_t type_value = 2;
+    uint8_t div = 1;
+    if (value > 255) {
+        div = 60;
+        type_value = 0x83;
+    } else {
+        type_value = 0x82;
+    }
+    value = (value / div) & 0xFF;
+    i2c_write(0x51, 0x0F, (uint8_t *)&value, 1);
+    i2c_write(0x51, 0x0E, &type_value, 1);
+
+    reg_value |= (1 << 0);
+    reg_value &= ~(1 << 7);
+    i2c_write(0x51, 0x01, &reg_value, 1);
+    return value * div;
+}
+
+int16_t bm8563_getTimerTime() {
+    uint8_t value = 0;
+    uint8_t type_value = 0;
+    i2c_read(0x51, 0x0f, &value, 1);
+    i2c_read(0x51, 0x0e, &type_value, 1);
+
+    if ((type_value & 0x03) == 3) {
+        return value * 60;
+    } else {
+        return value;
+    }
 }
 
 uint8_t bm8563_getIRQ() {
     uint8_t data;
     i2c_read(0x51, 0x01, &data, 1);
     return data;
-    // return (data & 0x0c) >> 2;
 }
 
 void bm8563_clearIRQ() {
@@ -157,23 +194,9 @@ void bm8563_clearIRQ() {
     i2c_write_byte(0x51, 0x01, data & 0xf3);
 }
 
-void bm8563_enableIRQ(uint8_t aie_enable, uint8_t tie_enable) {
-    uint8_t data;
-    i2c_read(0x51, 0x01, &data, 1);
-    data = data & 0xfc;
-    data = data | (aie_enable ? (0x01 << 1) : 0x00);
-    data = data | (tie_enable ? (0x01 << 0) : 0x00);
-    i2c_write_byte(0x51, 0x01, data);
-}
-
 void bm8563_test() {
-    vTaskDelay(pdMS_TO_TICKS(5000));
-    
     bm8563_init();
-    bm8563_enableIRQ(0, 1);
-    bm8563_setTE(1, 2, 10);
-    vTaskDelay(pdMS_TO_TICKS(10));
-    gpio_set_level(GPIO_NUM_33, 0);
+   
     
     rtc_date_t date;
     // memset(&date, 0, sizeof(rtc_date_t));
@@ -185,14 +208,19 @@ void bm8563_test() {
     // bm8563_setTime(&date);
 
     uint8_t irq; 
+    // bm8563_setDateIRQ(10, -1, -1, -1);
+    vTaskDelay(pdMS_TO_TICKS(10));
+    bm8563_setTimerIRQ(10);
+    gpio_set_level(GPIO_NUM_33, 0);
+
     for(;;) {
-        // bm8563_getTime(&date);
-        // printf("y: %d, m: %d, d: %d, h: %d, m:%d, s: %d\r\n", 
-        //     date.year, date.month, date.day, date.hour, date.minute, date.second);
+        bm8563_getTime(&date);
+        printf("y: %d, m: %d, d: %d, h: %d, m:%d, s: %d\r\n", date.year, date.month, date.day, date.hour, date.minute, date.second);
         vTaskDelay(pdMS_TO_TICKS(1000));
         irq = bm8563_getIRQ();
-        bm8563_getTime(&date);
-        printf("IRQ: %x, %d\r\n", irq, date.second);
+        int16_t time_ticks = bm8563_getTimerTime();
+        // bm8563_getTime(&date);
+        printf("IRQ: %x, %d\r\n", irq, time_ticks);
         if(irq) {
             bm8563_clearIRQ();
         }

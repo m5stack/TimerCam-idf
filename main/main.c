@@ -183,6 +183,13 @@ decode_fail:
 }
 
 static void start_webserver(void) {
+    char wifi_ssid[36], wifi_pwd[36];
+    while (GetWifiConfig(wifi_ssid, wifi_pwd) == false) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    wifi_init_sta(wifi_ssid, wifi_pwd);
+    wifi_wait_connect(portMAX_DELAY);
+
     httpd_handle_t server = NULL;
     httpd_handle_t stream_httpd = NULL;
 
@@ -258,21 +265,20 @@ void start_uart_server(void) {
         last_frame = fr_end;
         frame_time /= 1000;
         ESP_LOGI(TAG, "MJPG: %uKB %ums (%.1ffps), 0x%x", 
-                        (uint32_t)(_jpg_buf_len/1024), (uint32_t)frame_time, 1000.0 / (uint32_t)frame_time, sig);
+                    (uint32_t)(_jpg_buf_len/1024), (uint32_t)frame_time, 1000.0 / (uint32_t)frame_time, sig);
     }
 
     last_frame = 0;
 }
 
 bool restart = false;
-
 void frame_post_callback(uint8_t cmd) {
     if (restart && (cmd == (kSetDeviceMode | 0x80))) {
         esp_restart();
     }
 }
 
-void get_uart_data(int cmd_in, const uint8_t* data, int len) {
+void frame_recv_callback(int cmd_in, const uint8_t* data, int len) {
     int respond_len = 0;
     uint8_t* respond_buff;
     
@@ -291,7 +297,6 @@ void app_main()
     gpio_set_level(GPIO_NUM_33, 1);
 
     uart_init();
-    uart_set_cb(get_uart_data);
 
     led_init();
     led_brightness(512);
@@ -325,21 +330,10 @@ void app_main()
     InitCamFun();
 
     // bm8563_test();
+
     if (GetDeviceMode() == kUart) {
         start_uart_server();
     } else {
-        char wifi_ssid[36], wifi_pwd[36];
-        for (;;) {
-            if (GetWifiConfig(wifi_ssid, wifi_pwd)) {
-                wifi_init_sta(wifi_ssid, wifi_pwd);
-                wifi_wait_connect(portMAX_DELAY);
-                start_webserver();
-                break;
-            } else {
-                vTaskDelay(pdMS_TO_TICKS(100));
-            }
-            
-        }
+        start_webserver();
     }
-
 }

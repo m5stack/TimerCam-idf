@@ -16,17 +16,15 @@ void bm8563_setTime(rtc_date_t* data);
 
 void bm8563_getTime(rtc_date_t* data);
 
-void bm8563_setAE(int8_t minute, int8_t hour, int8_t day, int8_t week);
+void bm8563_setDateIRQ(int8_t minute, int8_t hour, int8_t day, int8_t week);
 
-void bm8563_setTE(uint8_t enable, uint8_t type, uint8_t value);
+int16_t bm8563_setTimerIRQ(int16_t value);
 
-uint8_t bm8563_getTEValue();
+int16_t bm8563_getTimerTime();
 
 uint8_t bm8563_getIRQ();
 
 void bm8563_clearIRQ();
-
-void bm8563_enableIRQ(uint8_t aie_enable, uint8_t tie_enable);
 
 void bm8563_test();
 

@@ -32,7 +32,6 @@ static bool DealWifiData(const uint8_t* data, int len) {
 uint8_t* DealConfigMsg(int cmd_in, const uint8_t* data, int len, int *out_len) {
     uint8_t* result = respond_buff;
     uint32_t ip;
-    bool run_success;
 
     if (IsCamCmd(cmd_in)) {
         if (len == 2) {
@@ -49,6 +48,7 @@ uint8_t* DealConfigMsg(int cmd_in, const uint8_t* data, int len, int *out_len) {
 
     }
 
+    bool run_success;
     switch (cmd_in) {
         case kSetDeviceMode:
             UpdateDeviceMode(data[0]);
