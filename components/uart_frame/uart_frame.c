@@ -15,7 +15,7 @@
 #define UART_RX_PIN 3
 #define UART_QUEUE_LENGTH 10
 #define RX_BUF_SIZE 256
-#define TX_BUF_SIZE 1024*200
+#define TX_BUF_SIZE 1024*100
 
 #define PACK_FIRST_BYTE 0xAA
 #define PACK_SECOND_BYTE 0x55
@@ -55,7 +55,7 @@ void uart_init() {
     uart_param_config(UART_NUM, &uart_config);
     uart_set_pin(UART_NUM, UART_TX_PIN, UART_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     uart_driver_install(UART_NUM, RX_BUF_SIZE, TX_BUF_SIZE, UART_QUEUE_LENGTH, &uart_queue, ESP_INTR_FLAG_LOWMED);
-    uart_set_rx_timeout(UART_NUM, 2);
+    uart_set_rx_timeout(UART_NUM, 3);
     xTaskCreatePinnedToCore(uart_frame_task, "uart_queue_task", 4 * 1024, NULL, 2, NULL, 1);
     xTaskCreatePinnedToCore(uart_frame_send_task, "uart_frame_send_task", 4 * 1024, NULL, 2, NULL, 1);
 }
@@ -73,6 +73,7 @@ static void uart_frame_send_task(void *arg) {
         uart_write_bytes(UART_NUM, end_bytes, 5);
         uart_wait_tx_done(UART_NUM, portMAX_DELAY);
         frame_post_callback(frame.buffer[7]);
+        
         if (frame.free_buffer) {
             free(frame.buffer);
         }
@@ -82,12 +83,12 @@ static void uart_frame_send_task(void *arg) {
 
 static void uart_frame_task(void *arg) {
     uart_event_t xEvent;
-    uint8_t *buf = (uint8_t *)malloc(256 * sizeof(uint8_t));
+    uint8_t *buf = (uint8_t *)malloc(RX_BUF_SIZE * sizeof(uint8_t));
     for(;;) {
         if (xQueueReceive(uart_queue, (void*)&xEvent, portMAX_DELAY) == pdTRUE) {
             switch(xEvent.type) {
                 case UART_DATA:
-                    if (xEvent.size > 256 && xEvent.size < 8) {
+                    if (xEvent.size > RX_BUF_SIZE && xEvent.size < 8) {
                         uart_flush_input(UART_NUM);
                         break;
                     }
@@ -99,16 +100,16 @@ static void uart_frame_task(void *arg) {
                     }
 
                     int len = (buf[2] << 24) | (buf[3] << 16) | (buf[4] << 8) | buf[5];
-                    if (len != (xEvent.size - 7)) {
+                    if (len > (xEvent.size - 7)) {
                         break ;
                     }
 
                     int xor_result = 0;
-                    for (int i = 0; i < xEvent.size; i++) {
+                    for (int i = 0; i < len - 7; i++) {
                         xor_result = xor_result ^ buf[i];
                     }
 
-                    // xor error
+                    // xor_result error
                     if (xor_result != 0) {
                         break ;
                     }
@@ -150,11 +151,11 @@ void uart_frame_send(uint8_t cmd, const uint8_t* frame, uint32_t len, bool wait_
     out_buf[7] = cmd;
     memcpy(&out_buf[8], frame, len);
 
-    int xor = 0x00;
+    int xor_result = 0x00;
     for (uint32_t i = 0; i < out_len - 1; i++) {
-        xor = out_buf[i] ^ xor;
+        xor_result = out_buf[i] ^ xor_result;
     }
-    out_buf[out_len - 1] = xor;
+    out_buf[out_len - 1] = xor_result;
 
     if (wait_finish) {
         while (uxQueueMessagesWaiting(uart_buffer_queue)) {

@@ -25,7 +25,13 @@ void InitTimerCamConfig() {
     }
     nvs_close(handle);
     
-    esp_camera_load_from_nvs(CAM_NAMESPACE);
+    err = esp_camera_load_from_nvs(CAM_NAMESPACE);
+
+    if (err != ESP_OK) {
+        sensor_t *s = esp_camera_sensor_get();
+        s->set_framesize(s, FRAMESIZE_VGA);
+        s->set_vflip(s, 1);
+    }
 }
 
 void SaveTimerCamConfig() {

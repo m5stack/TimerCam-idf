@@ -24,12 +24,15 @@
 #define CAM_PIN_D1      35
 #define CAM_PIN_D0      32
 
-#define CAM_XCLK_FREQ   20000000
-
-#define CAM_PIN_TX 4
-#define CAM_PIN_RX 13
+#define CAM_XCLK_FREQ   10000000
 
 #define CAMERA_LED_GPIO 2
+
+#define Ext_PIN_1 4
+#define Ext_PIN_2 13
+
+#define BAT_HOLD_PIN 33
+#define BAT_ADC_PIN 33
 
 // cmd list
 typedef enum {
@@ -77,14 +80,22 @@ typedef enum {
 
 
     kTimingTime,
-
+    kFactoryTest,
     kErrorOccur,
 } CmdList_t;
 
+typedef enum {
+    kPSRAMError,
+    kCamError,
+    kWifiMsgError,
+    kBMM8563Error,
+    kNotFoundWifiMsg,
+    kGroveError,
+} ErrorDetail_t;
 
 // mod config
 #define SSID_MAX_LEN 36
-#define PWD_MAX_LEN 36
+#define PWD_MAX_LEN 38
 
 typedef enum {
     kWifiSta,
@@ -98,10 +109,6 @@ typedef struct _timer_cam_config {
     char wifi_pwd[PWD_MAX_LEN];
     int TimingTime;
 } TimerCamConfig_t;
-
-// default wifi connect
-#define ESP_WIFI_SSID "cam"
-#define ESP_WIFI_PASS "12345678"
 
 
 void InitTimerCamConfig();

@@ -8,8 +8,6 @@
 
 #define TAG "Network"
 
-#define ESP_WIFI_AP_SSID      "M5-Cam"
-#define ESP_WIFI_AP_PASS      ""
 #define MAX_STA_CONN       1
 
 static EventGroupHandle_t wifi_event_group = NULL;
@@ -20,8 +18,7 @@ const int CONNECTED_FAIL_BIT = BIT1;
 
 static void init_mdns(void);
 
-static esp_err_t event_handler(void* ctx, system_event_t* event) 
-{ 
+static esp_err_t event_handler(void* ctx, system_event_t* event) { 
     static int connect_fail_nums = 0;
     static int reconnect_nums = 65535;
 
@@ -68,6 +65,11 @@ static esp_err_t event_handler(void* ctx, system_event_t* event)
     return ESP_OK;
 }
 
+WifiConnectStatus_t wifi_wait_connect(int32_t timeout) {
+    EventBits_t bits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, false, pdMS_TO_TICKS(timeout));
+    return ((bits & CONNECTED_BIT) == CONNECTED_BIT);
+}
+
 void wifi_sta_connect(const char* ssid, const char* pwd) {
     wifi_config_t wifi_config = {
         .sta = {
@@ -94,30 +96,71 @@ void wifi_sta_connect(const char* ssid, const char* pwd) {
     xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, false, portMAX_DELAY);
 }
 
-WifiConnectStatus_t wifi_wait_connect(int32_t timeout) {
-    EventBits_t bits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, false, pdMS_TO_TICKS(timeout));
-    return ((bits & CONNECTED_BIT) == CONNECTED_BIT);
-}
-
 void wifi_init_sta(const char* ssid, const char* pwd)
-{
-    wifi_event_group = xEventGroupCreate();
+{   
+    if (wifi_event_group == NULL) {
+        wifi_event_group = xEventGroupCreate();
 
-    tcpip_adapter_init();
-    ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
+        tcpip_adapter_init();
+        ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
 
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    cfg.nvs_enable = false;
-    cfg.static_tx_buf_num = 16;
-    cfg.dynamic_tx_buf_num = 32;
-    cfg.static_rx_buf_num = 8;
-    cfg.dynamic_rx_buf_num = 8;
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+        wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+        cfg.nvs_enable = false;
+        cfg.static_tx_buf_num = 24;
+        cfg.static_rx_buf_num = 8;
+        cfg.dynamic_rx_buf_num = 8;
+        ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    } else {
+        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
+    }
     
     wifi_sta_connect(ssid, pwd);
 }
 
+void wifi_init_ap(const char *ssid, const char *pwd) {
+    if (wifi_event_group == NULL) {
+        wifi_event_group = xEventGroupCreate();
+
+        tcpip_adapter_init();
+        ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
+
+        wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+        cfg.nvs_enable = false;
+        cfg.static_tx_buf_num = 24;
+        cfg.static_rx_buf_num = 8;
+        cfg.dynamic_rx_buf_num = 8;
+        ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    } else {
+        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
+    }
+
+    wifi_config_t wifi_config = {
+        .ap = {
+            .ssid = "",
+            .ssid_len = 1,
+            .password = "",
+            .max_connection = MAX_STA_CONN,
+            .authmode = WIFI_AUTH_WPA_WPA2_PSK
+        },
+    };
+    
+    wifi_config.ap.ssid_len = strlen(ssid);
+    memcpy(wifi_config.ap.ssid, ssid, strlen(ssid));
+    memcpy(wifi_config.ap.password, pwd, strlen(pwd));
+
+    wifi_config.ap.ssid[strlen(ssid)] = '\0';
+    wifi_config.ap.password[strlen(pwd)] = '\0';
+
+    if (strlen(pwd) == 0) {
+        wifi_config.ap.authmode = WIFI_AUTH_OPEN;
+    }
+    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
+    ESP_ERROR_CHECK(esp_wifi_start());
+
+    ESP_LOGI(TAG, "wifi_init_softap finished. SSID:%s password:%s", ssid, pwd);
+}
 
 int GetWifiConnectStatus() {
     if (wifi_event_group == NULL) {
@@ -138,43 +181,6 @@ int GetWifiConnectStatus() {
 
 uint32_t GetWifiIP() {
     return ip_addr.addr;
-}
-
-void wifi_init_ap(void) {
-    wifi_event_group = xEventGroupCreate();
-
-    tcpip_adapter_init();
-    ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
-
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    cfg.wifi_task_core_id = 0;
-    cfg.nvs_enable = false;
-    cfg.static_tx_buf_num = 16;
-    cfg.dynamic_tx_buf_num = 32;
-    cfg.static_rx_buf_num = 8;
-    cfg.dynamic_rx_buf_num = 8;
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
-    // ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL));
-
-    wifi_config_t wifi_config = {
-        .ap = {
-            .ssid = ESP_WIFI_AP_SSID,
-            .ssid_len = strlen(ESP_WIFI_AP_SSID),
-            .password = ESP_WIFI_AP_PASS,
-            .max_connection = MAX_STA_CONN,
-            .authmode = WIFI_AUTH_WPA_WPA2_PSK
-        },
-    };
-    if (strlen(ESP_WIFI_AP_PASS) == 0) {
-        wifi_config.ap.authmode = WIFI_AUTH_OPEN;
-    }
-
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-
-    ESP_LOGI(TAG, "wifi_init_softap finished. SSID:%s password:%s", ESP_WIFI_AP_SSID, ESP_WIFI_AP_PASS);
 }
 
 static void init_mdns(void) {
