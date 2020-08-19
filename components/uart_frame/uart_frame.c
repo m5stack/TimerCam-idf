@@ -15,7 +15,7 @@
 #define UART_RX_PIN 3
 #define UART_QUEUE_LENGTH 10
 #define RX_BUF_SIZE 256
-#define TX_BUF_SIZE 1024*100
+#define TX_BUF_SIZE 1024*200
 
 #define PACK_FIRST_BYTE 0xAA
 #define PACK_SECOND_BYTE 0x55
@@ -55,7 +55,7 @@ void uart_init() {
     uart_param_config(UART_NUM, &uart_config);
     uart_set_pin(UART_NUM, UART_TX_PIN, UART_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     uart_driver_install(UART_NUM, RX_BUF_SIZE, TX_BUF_SIZE, UART_QUEUE_LENGTH, &uart_queue, ESP_INTR_FLAG_LOWMED);
-    uart_set_rx_timeout(UART_NUM, 3);
+    uart_set_rx_timeout(UART_NUM, 2);
     xTaskCreatePinnedToCore(uart_frame_task, "uart_queue_task", 4 * 1024, NULL, 2, NULL, 1);
     xTaskCreatePinnedToCore(uart_frame_send_task, "uart_frame_send_task", 4 * 1024, NULL, 2, NULL, 1);
 }
@@ -73,7 +73,6 @@ static void uart_frame_send_task(void *arg) {
         uart_write_bytes(UART_NUM, end_bytes, 5);
         uart_wait_tx_done(UART_NUM, portMAX_DELAY);
         frame_post_callback(frame.buffer[7]);
-        
         if (frame.free_buffer) {
             free(frame.buffer);
         }
@@ -105,7 +104,7 @@ static void uart_frame_task(void *arg) {
                     }
 
                     int xor_result = 0;
-                    for (int i = 0; i < len - 7; i++) {
+                    for (int i = 0; i < len + 7; i++) {
                         xor_result = xor_result ^ buf[i];
                     }
 
@@ -170,4 +169,3 @@ void uart_frame_send(uint8_t cmd, const uint8_t* frame, uint32_t len, bool wait_
 
     xQueueSend(uart_buffer_queue, &uart_frame, portMAX_DELAY);
 }
-
