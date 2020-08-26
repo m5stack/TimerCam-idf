@@ -15,16 +15,18 @@ static ip4_addr_t ip_addr;
 
 const int CONNECTED_BIT = BIT0;
 const int CONNECTED_FAIL_BIT = BIT1;
+volatile WifiConnectStatus_t con_result = CONNECT_FAIL;
 
 static void init_mdns(void);
 
 static esp_err_t event_handler(void* ctx, system_event_t* event) { 
     static int connect_fail_nums = 0;
     static int reconnect_nums = 65535;
+    system_event_sta_disconnected_t *disconn = &event->event_info.disconnected;
 
     switch (event->event_id) {
         case SYSTEM_EVENT_STA_START:
-            xEventGroupClearBits(wifi_event_group, CONNECTED_FAIL_BIT);
+            xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
             esp_wifi_connect();
             break;
 
@@ -32,6 +34,7 @@ static esp_err_t event_handler(void* ctx, system_event_t* event) {
             ESP_LOGI(TAG, "got ip:%s", ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip));
             ip_addr = event->event_info.got_ip.ip_info.ip;
             xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
+            xEventGroupClearBits(wifi_event_group, CONNECTED_FAIL_BIT);
             init_mdns();
             break;
 
@@ -49,18 +52,33 @@ static esp_err_t event_handler(void* ctx, system_event_t* event) {
             break;
 
         case SYSTEM_EVENT_STA_DISCONNECTED:
+            switch (disconn->reason) {
+                case WIFI_REASON_BEACON_TIMEOUT:
+                    con_result = CONNECT_FAIL_BEACON_TIMEOUT;
+                    break;
+                case WIFI_REASON_NO_AP_FOUND:
+                    con_result = CONNECT_FAIL_NO_AP_FOUND;
+                    break;
+                case WIFI_REASON_AUTH_FAIL:
+                    con_result = CONNECT_FAIL_AUTH_FAIL;
+                    break;
+                default:
+                    con_result = CONNECT_FAIL;
+                    break;
+            }
+
             if (connect_fail_nums < reconnect_nums) {
                 connect_fail_nums += 1;
                 ESP_LOGI(TAG, "Reconnect %d", connect_fail_nums);
                 esp_wifi_connect();
-            } else {
-                xEventGroupSetBits(wifi_event_group, CONNECTED_FAIL_BIT);
             }
+
+            xEventGroupSetBits(wifi_event_group, CONNECTED_FAIL_BIT);
             xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
             break;
 
         default:
-        break;
+            break;
     }
     return ESP_OK;
 }
@@ -114,7 +132,8 @@ void wifi_init_sta(const char* ssid, const char* pwd)
     } else {
         ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     }
-    
+
+    xEventGroupClearBits(wifi_event_group, CONNECTED_FAIL_BIT);
     wifi_sta_connect(ssid, pwd);
 }
 
@@ -168,12 +187,13 @@ int GetWifiConnectStatus() {
     }
     
     EventBits_t bits = xEventGroupGetBits(wifi_event_group);
+
     if (bits & CONNECTED_BIT) {
         return CONNECT_SUCCESS;
     }
 
     if (bits & CONNECTED_FAIL_BIT) {
-        return CONNECT_FAIL;
+        return con_result;
     }
 
     return CONNECTING;
@@ -191,7 +211,6 @@ static void init_mdns(void) {
     ESP_ERROR_CHECK( mdns_init() );
     mdns_hostname_set(host_name);
     free(host_name);
-
     mdns_instance_name_set("timer-cam-mdns");
 
     char *mac_str;

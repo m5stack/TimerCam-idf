@@ -60,7 +60,7 @@ void InitCamFun() {
     AddCamCmdFun(kQuality,       (cmd_fun)s->set_quality);
     AddCamCmdFun(kContrast,      (cmd_fun)s->set_contrast);
     AddCamCmdFun(kBrightness,    (cmd_fun)s->set_brightness);
-    AddCamCmdFun(kSaturation,    (cmd_fun)s->set_brightness);
+    AddCamCmdFun(kSaturation,    (cmd_fun)s->set_saturation);
     AddCamCmdFun(kGainceiling,   (cmd_fun)s->set_gainceiling);
     AddCamCmdFun(kColorbar,      (cmd_fun)s->set_colorbar);
     AddCamCmdFun(kAwb,           (cmd_fun)s->set_whitebal);

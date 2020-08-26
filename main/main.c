@@ -98,19 +98,30 @@ void start_uart_server(void) {
 }
 
 bool restart = false;
+volatile bool init_finish = false;
+
 void frame_post_callback(uint8_t cmd) {
     if (restart && (cmd == (kSetDeviceMode | 0x80))) {
+        esp_restart();
+    } else if(cmd == (KRestart | 0x80)) {
         esp_restart();
     }
 }
 
 void frame_recv_callback(int cmd_in, const uint8_t* data, int len) {
-    int respond_len = 0;
-    uint8_t* respond_buff;
-    
+    if (init_finish == false) {
+        return ;
+    }
+
     if (cmd_in == kFactoryTest) {
         extern void factory_test();
         factory_test();
+        return ;
+    }
+
+    if (cmd_in == KRestart) {
+        uint8_t respond_data = 0;
+        uart_frame_send(cmd_in | 0x80, &respond_data, 1, false);
         return ;
     }
 
@@ -118,6 +129,8 @@ void frame_recv_callback(int cmd_in, const uint8_t* data, int len) {
         restart = true;
     }
 
+    uint8_t* respond_buff;
+    int respond_len = 0;
     respond_buff = DealConfigMsg(cmd_in, data, len, &respond_len);
     uart_frame_send(cmd_in | 0x80, respond_buff, respond_len, false);
 }
@@ -130,7 +143,7 @@ void app_main()
     
     led_init(CAMERA_LED_GPIO);
     led_brightness(256);
-
+    
     uart_init();
     bmm8563_init();
 
@@ -162,6 +175,8 @@ void app_main()
 
     esp_task_wdt_init(1, false);
     esp_task_wdt_add(xTaskGetIdleTaskHandleForCPU(0));
+    
+    init_finish = true;
 
     if (GetDeviceMode() == kUart) {
         start_uart_server();

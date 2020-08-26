@@ -31,10 +31,9 @@ esp_err_t jpg_stream_httpd_handler(httpd_req_t *req) {
         fb = esp_camera_fb_get();
         if (!fb) {
             ESP_LOGE(TAG, "Camera capture failed");
-            res = ESP_FAIL;
             continue ;
         } 
-  
+
         _jpg_buf_len = fb->len;
         _jpg_buf = fb->buf;
 
@@ -51,6 +50,7 @@ esp_err_t jpg_stream_httpd_handler(httpd_req_t *req) {
         }
 
         esp_camera_fb_return(fb);
+
         if(res != ESP_OK){
             break;
         }

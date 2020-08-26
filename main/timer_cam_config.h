@@ -82,6 +82,7 @@ typedef enum {
     kTimingTime,
     kFactoryTest,
     kErrorOccur,
+    KRestart,
 } CmdList_t;
 
 typedef enum {

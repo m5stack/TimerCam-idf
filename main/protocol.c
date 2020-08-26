@@ -35,7 +35,8 @@ uint8_t* DealConfigMsg(int cmd_in, const uint8_t* data, int len, int *out_len) {
 
     if (IsCamCmd(cmd_in)) {
         if (len == 2) {
-            int value = (data[1] << 8) | (data[0]);
+            int16_t value = (data[1] << 8) | (data[0]);
+            printf("%d\r\n",value);
             esp_err_t err = CallCamCmd(cmd_in, value);
             if (err == ESP_OK) {
                 respond_buff[0] = 1;
