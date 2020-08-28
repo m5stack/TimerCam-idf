@@ -8,15 +8,13 @@
 #include "nvs_flash.h"
 #include "esp_task_wdt.h"
 
-#include "timer_cam_config.h"
 #include "battery.h"
 #include "bmm8563.h"
 #include "led.h"
 #include "network.h"
-#include "uart_frame.h"
-#include "protocol.h"
-#include "cam_cmd.h"
-#include "app_httpd.h"
+#include "image_post.h"
+#include "esp_sleep.h"
+#include "timer_cam_config.h"
 
 #define TAG "TIMERCAM"
 
@@ -44,12 +42,11 @@ static camera_config_t camera_config = {
     .ledc_channel = LEDC_CHANNEL_0,
 
     .pixel_format = PIXFORMAT_JPEG,//YUV422,GRAYSCALE,RGB565,JPEG
-    .frame_size = FRAMESIZE_UXGA,//QQVGA-UXGA Do not use sizes above QVGA when not JPEG
+    .frame_size = FRAMESIZE_VGA,//QQVGA-UXGA Do not use sizes above QVGA when not JPEG
 
     .jpeg_quality = 15, //0-63 lower number means higher quality
     .fb_count = 3 //if more than one, i2s runs in continuous mode. Use only with JPEG
 };
-
 
 char CAM_LOGO[] =
 " _____ _                      ____                \r\n"
@@ -58,135 +55,87 @@ char CAM_LOGO[] =
 "  | | | | | | | | |  __/ |  | |__| (_| | | | | | |\r\n"
 "  |_| |_|_| |_| |_|\\___|_|   \\____\\__,_|_| |_| |_|\r\n";
 
-void start_uart_server(void) {
-    camera_fb_t * fb = NULL;
-    size_t _jpg_buf_len;
-    uint8_t * _jpg_buf;
-    static int64_t last_frame = 0;
-    if(!last_frame) {
-        last_frame = esp_timer_get_time();   
-    }
 
-    while(true){
-        fb = esp_camera_fb_get();
-        if (!fb) {
-            ESP_LOGE(TAG, "Camera capture failed");
-            continue ;
-        } 
-        uint32_t sig = *((uint32_t *)&fb->buf[fb->len - 4]);
-
-        _jpg_buf_len = fb->len;
-        _jpg_buf = fb->buf;
-
-        if (!(_jpg_buf[_jpg_buf_len - 1] != 0xd9 || _jpg_buf[_jpg_buf_len - 2] != 0xd9)) {
-            esp_camera_fb_return(fb);
-            continue;
-        }
-
-        uart_frame_send(kImage, _jpg_buf, _jpg_buf_len, true);
-        esp_camera_fb_return(fb);
-
-        int64_t fr_end = esp_timer_get_time();
-        int64_t frame_time = fr_end - last_frame;
-        last_frame = fr_end;
-        frame_time /= 1000;
-        ESP_LOGI(TAG, "MJPG: %uKB %ums (%.1ffps), 0x%x", 
-                    (uint32_t)(_jpg_buf_len/1024), (uint32_t)frame_time, 1000.0 / (uint32_t)frame_time, sig);
-    }
-
-    last_frame = 0;
-}
-
-bool restart = false;
-volatile bool init_finish = false;
-
-void frame_post_callback(uint8_t cmd) {
-    if (restart && (cmd == (kSetDeviceMode | 0x80))) {
-        esp_restart();
-    } else if(cmd == (KRestart | 0x80)) {
-        esp_restart();
-    }
-}
-
-void frame_recv_callback(int cmd_in, const uint8_t* data, int len) {
-    if (init_finish == false) {
-        return ;
-    }
-
-    if (cmd_in == kFactoryTest) {
-        extern void factory_test();
-        factory_test();
-        return ;
-    }
-
-    if (cmd_in == KRestart) {
-        uint8_t respond_data = 0;
-        uart_frame_send(cmd_in | 0x80, &respond_data, 1, false);
-        return ;
-    }
-
-    if (cmd_in == kSetDeviceMode || GetDeviceMode() != data[0]) {
-        restart = true;
-    }
-
-    uint8_t* respond_buff;
-    int respond_len = 0;
-    respond_buff = DealConfigMsg(cmd_in, data, len, &respond_len);
-    uart_frame_send(cmd_in | 0x80, respond_buff, respond_len, false);
-}
-
-
+#define POST_TIME 20
 
 void app_main()
 {
+    esp_log_level_set(TAG, ESP_LOG_INFO);
+    esp_log_level_set("wifi", ESP_LOG_ERROR);
+    esp_log_level_set("gpio", ESP_LOG_ERROR);
+    esp_log_level_set("camera", ESP_LOG_ERROR);
+    esp_log_level_set("system_api", ESP_LOG_ERROR);
+    esp_log_level_set("sccb", ESP_LOG_ERROR);
+
     bat_init();
-    
+
     led_init(CAMERA_LED_GPIO);
     led_brightness(256);
-    
-    uart_init();
-    bmm8563_init();
 
-    esp_log_level_set(TAG, ESP_LOG_ERROR);
+    bmm8563_init();
+    int16_t time_wake = bmm8563_setTimerIRQ(POST_TIME);
+
     printf("%s", CAM_LOGO);
+    ESP_LOGI(TAG, "Cam will wake in next %d sec", time_wake);
 
     //Initialize NVS
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-      ESP_ERROR_CHECK(nvs_flash_erase());
-      ret = nvs_flash_init();
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+        ESP_ERROR_CHECK(ret);
     }
-    ESP_ERROR_CHECK(ret);
+
+    wifi_init_sta("cam", "12345678");
 
     ret = esp_camera_init(&camera_config);
 
     if (ret != ESP_OK) {
-        for (;;) {
-            uint8_t error_code = kCamError;
-            uart_frame_send(kErrorOccur, &error_code, 1, false);
-            vTaskDelay(pdMS_TO_TICKS(500));
-        }
+        ESP_LOGI(TAG, "Cam Init Failed");
+        goto exit;
     } else {
-        ESP_LOGI(TAG,  "Cam Init Success");
+        ESP_LOGI(TAG, "Cam Init Success");
     }
-
-    InitTimerCamConfig();
-    InitCamFun();
 
     esp_task_wdt_init(1, false);
     esp_task_wdt_add(xTaskGetIdleTaskHandleForCPU(0));
-    
-    init_finish = true;
 
-    if (GetDeviceMode() == kUart) {
-        start_uart_server();
-    } else {
-        char wifi_ssid[36], wifi_pwd[36];
-        while (GetWifiConfig(wifi_ssid, wifi_pwd) == false) {
-            uint8_t error_code = kWifiMsgError;
-            uart_frame_send(kErrorOccur, &error_code, 1, false);
-            vTaskDelay(pdMS_TO_TICKS(100));
-        }
-        start_webserver(wifi_ssid, wifi_pwd);
+    sensor_t *s = esp_camera_sensor_get();
+    
+    s->set_framesize(s, FRAMESIZE_VGA);
+    s->set_vflip(s, 1);
+
+    for (uint8_t i = 0; i < 5; i++) {
+        camera_fb_t* fb = esp_camera_fb_get();
+        esp_camera_fb_return(fb);
     }
+
+    if(wifi_wait_connect(pdMS_TO_TICKS(8000))) {
+        ESP_LOGI(TAG, "Connect to Wi-Fi Success");
+    } else {
+        ESP_LOGI(TAG, "Connect to Wi-Fi Failed");
+        goto exit;
+    }
+    uint8_t mac[6];
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+
+    char *token = NULL;
+    asprintf(&token, "%x%x%x%x%x%x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+    camera_fb_t* fb = esp_camera_fb_get();
+    const char *url = "http://192.168.0.104:5001/timer-cam/jpg";
+    bool result =  http_post_image(url, token, fb->buf, fb->len, bat_get_voltage());
+
+    if (result) {
+        ESP_LOGI(TAG, "Post to server Success");
+    } else {
+        ESP_LOGE(TAG, "Post to server Failed");
+    }
+
+exit:
+    bat_disable_output();
+
+    ESP_LOGI(TAG, "Cam deep sleep start");
+    esp_sleep_enable_timer_wakeup(POST_TIME * 1000000);
+    esp_deep_sleep_start();
 }
