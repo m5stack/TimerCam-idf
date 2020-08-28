@@ -2,4 +2,4 @@
 
 void led_brightness(int duty);
 
-void led_init();
+void led_init(int led_gpio);

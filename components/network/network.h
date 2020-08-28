@@ -13,7 +13,7 @@ typedef enum {
 
 void wifi_init_sta(const char* ssid, const char* pwd);
 
-WifiConnectStatus_t wifi_wait_connect(int32_t timeout);
+bool wifi_wait_connect(int32_t timeout);
 
 void wifi_init_ap(const char *ssid, const char *pwd);
 

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "nvs_flash.h"
-#include "protocol.h"
 
 /* Define ------------------------------------------------------------------- */
 // pin config

@@ -83,7 +83,7 @@ static esp_err_t event_handler(void* ctx, system_event_t* event) {
     return ESP_OK;
 }
 
-WifiConnectStatus_t wifi_wait_connect(int32_t timeout) {
+bool wifi_wait_connect(int32_t timeout) {
     EventBits_t bits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, false, pdMS_TO_TICKS(timeout));
     return ((bits & CONNECTED_BIT) == CONNECTED_BIT);
 }
@@ -110,8 +110,6 @@ void wifi_sta_connect(const char* ssid, const char* pwd) {
     
     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
-
-    xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, false, portMAX_DELAY);
 }
 
 void wifi_init_sta(const char* ssid, const char* pwd)
