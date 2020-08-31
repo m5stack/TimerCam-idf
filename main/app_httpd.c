@@ -3,6 +3,7 @@
 #include "timer_cam_config.h"
 #include "esp_log.h"
 #include "network.h"
+#include "protocol.h"
 
 #define TAG "HTTPD"
 
