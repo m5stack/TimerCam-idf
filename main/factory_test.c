@@ -84,7 +84,7 @@ void bmm8563_task(void *arg) {
     for (;;) {
         bmm8563_getTime(&date);
         out_buf[0] = date.second;
-        out_buf[1] = i2c_test(0x5c);
+        out_buf[1] = i2c_test(0x44);
         out_buf[2] = (uint8_t)max_rssi;
         out_buf[3] = (bat_get_adc_raw() > 2000) ? 1 : 0;
         uart_frame_send(kFactoryTest, out_buf, 4, false);
