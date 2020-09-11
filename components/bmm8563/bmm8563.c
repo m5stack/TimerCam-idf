@@ -153,6 +153,11 @@ int16_t bmm8563_setTimerIRQ(int16_t value) {
 
     uint8_t type_value = 2;
     uint8_t div = 1;
+
+    if (value > 255 * 60) {
+        value = 255 * 60;
+    }
+
     if (value > 255) {
         div = 60;
         type_value = 0x83;
