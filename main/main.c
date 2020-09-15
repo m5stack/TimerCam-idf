@@ -16,6 +16,8 @@
 #include "esp_sleep.h"
 #include "timer_cam_config.h"
 
+#include "ext_info.h"
+
 #define TAG "TIMERCAM"
 
 static camera_config_t camera_config = {
@@ -42,7 +44,7 @@ static camera_config_t camera_config = {
     .ledc_channel = LEDC_CHANNEL_0,
 
     .pixel_format = PIXFORMAT_JPEG,//YUV422,GRAYSCALE,RGB565,JPEG
-    .frame_size = FRAMESIZE_VGA,//QQVGA-UXGA Do not use sizes above QVGA when not JPEG
+    .frame_size = FRAMESIZE_UXGA,//QQVGA-UXGA Do not use sizes above QVGA when not JPEG
 
     .jpeg_quality = 15, //0-63 lower number means higher quality
     .fb_count = 3 //if more than one, i2s runs in continuous mode. Use only with JPEG
@@ -55,9 +57,6 @@ char CAM_LOGO[] =
 "  | | | | | | | | |  __/ |  | |__| (_| | | | | | |\r\n"
 "  |_| |_|_| |_| |_|\\___|_|   \\____\\__,_|_| |_| |_|\r\n";
 
-
-#define POST_TIME 20
-
 void app_main()
 {
     esp_log_level_set(TAG, ESP_LOG_INFO);
@@ -68,15 +67,16 @@ void app_main()
     esp_log_level_set("sccb", ESP_LOG_ERROR);
 
     bat_init();
+    TickType_t power_on_time = xTaskGetTickCount();
 
     led_init(CAMERA_LED_GPIO);
     led_brightness(256);
 
     bmm8563_init();
-    int16_t time_wake = bmm8563_setTimerIRQ(POST_TIME);
-
     printf("%s", CAM_LOGO);
-    ESP_LOGI(TAG, "Cam will wake in next %d sec", time_wake);
+
+    bool result = false;
+
 
     //Initialize NVS
     esp_err_t ret = nvs_flash_init();
@@ -86,12 +86,40 @@ void app_main()
         ESP_ERROR_CHECK(ret);
     }
 
-    wifi_init_sta("cam", "12345678");
+    ExtInfoInitAddr(0x3ff000);
+    char* ssid = NULL;
+    char* pwd = NULL;
+    int wake_time = 60;
+    int image_size = FRAMESIZE_UXGA;
+    
+    ret = ExtInfoGetString("ssid", &ssid);
+    ret |= ExtInfoGetString("pwd", &pwd);
+    ret |= ExtInfoGetInt("wake_time", &wake_time);
+    ret |= ExtInfoGetInt("image_size", &image_size);
 
+    if (image_size > FRAMESIZE_UXGA) {
+        image_size = FRAMESIZE_UXGA;
+    } else if (image_size < FRAMESIZE_240X240) {
+        image_size = FRAMESIZE_240X240;
+    }
+
+    if (wake_time > 15290) {
+        wake_time = 15290;
+    } else if (wake_time < 20) {
+        wake_time = 20;
+    }
+
+    if (ret != ESP_OK) {
+        goto exit;
+    }
+
+    wifi_init_sta(ssid, pwd);
+
+    camera_config.frame_size = image_size;
     ret = esp_camera_init(&camera_config);
 
     if (ret != ESP_OK) {
-        ESP_LOGI(TAG, "Cam Init Failed");
+        ESP_LOGE(TAG, "Cam Init Failed");
         goto exit;
     } else {
         ESP_LOGI(TAG, "Cam Init Success");
@@ -101,8 +129,6 @@ void app_main()
     esp_task_wdt_add(xTaskGetIdleTaskHandleForCPU(0));
 
     sensor_t *s = esp_camera_sensor_get();
-    
-    s->set_framesize(s, FRAMESIZE_VGA);
     s->set_vflip(s, 1);
 
     for (uint8_t i = 0; i < 5; i++) {
@@ -110,21 +136,24 @@ void app_main()
         esp_camera_fb_return(fb);
     }
 
-    if(wifi_wait_connect(pdMS_TO_TICKS(8000))) {
+    result = wifi_wait_connect(pdMS_TO_TICKS(8000));
+    if(result) {
         ESP_LOGI(TAG, "Connect to Wi-Fi Success");
     } else {
-        ESP_LOGI(TAG, "Connect to Wi-Fi Failed");
+        ESP_LOGE(TAG, "Connect to Wi-Fi Failed");
         goto exit;
     }
+
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
 
     char *token = NULL;
-    asprintf(&token, "%x%x%x%x%x%x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    asprintf(&token, "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], 1);
 
     camera_fb_t* fb = esp_camera_fb_get();
-    const char *url = "http://192.168.0.104:5001/timer-cam/jpg";
-    bool result =  http_post_image(url, token, fb->buf, fb->len, bat_get_voltage());
+    // const char *url = "http://192.168.0.104:5001/timer-cam/image";
+    const char *url = "http://api.m5stack.com:5003/timer-cam/image";
+    result =  http_post_image(url, token, fb->buf, fb->len, bat_get_voltage());
 
     if (result) {
         ESP_LOGI(TAG, "Post to server Success");
@@ -133,9 +162,24 @@ void app_main()
     }
 
 exit:
+    if (result == false) {
+        led_brightness(0);
+        vTaskDelay(pdMS_TO_TICKS(100));
+        led_brightness(256);
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+
+    if (wake_time > (xTaskGetTickCount() - power_on_time) / 1000) {
+        bmm8563_setTimerIRQ(wake_time - (xTaskGetTickCount() - power_on_time) / 1000);
+    } else {
+        bmm8563_setTimerIRQ(1);
+    }
+
+    ESP_LOGI(TAG, "Cam will wake in next %d sec", wake_time);
+
     bat_disable_output();
 
     ESP_LOGI(TAG, "Cam deep sleep start");
-    esp_sleep_enable_timer_wakeup(POST_TIME * 1000000);
+    esp_sleep_enable_timer_wakeup(wake_time * 1000000);
     esp_deep_sleep_start();
 }

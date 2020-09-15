@@ -5,8 +5,6 @@
 #include "esp_err.h"
 #include "esp_log.h"
 
-#define SERVER_URL "http://192.168.0.104:5001/post"
-
 
 bool http_post_image(const char* url, const char* tok, const uint8_t *data, uint32_t len, uint32_t voltage) {
     bool result = false;
