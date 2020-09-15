@@ -28,7 +28,6 @@ void bat_init() {
     esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, BASE_VOLATAGE, adc_chars);
 }
 
-
 void bat_hold_output() {
     gpio_set_level(BAT_OUTPUT_HOLD_PIN, 1);
 }

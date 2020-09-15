@@ -193,36 +193,3 @@ void bmm8563_clearIRQ() {
     i2c_read(0x51, 0x01, &data, 1);
     i2c_write_byte(0x51, 0x01, data & 0xf3);
 }
-
-void bmm8563_test() {
-    bmm8563_init();
-   
-    
-    rtc_date_t date;
-    // memset(&date, 0, sizeof(rtc_date_t));
-    // date.year = 2020;
-    // date.month = 5;
-    // date.day = 14;
-    // date.hour = 19;
-    // date.minute = 50;
-    // bmm8563_setTime(&date);
-
-    uint8_t irq; 
-    // bmm8563_setDateIRQ(10, -1, -1, -1);
-    vTaskDelay(pdMS_TO_TICKS(10));
-    bmm8563_setTimerIRQ(10);
-    gpio_set_level(GPIO_NUM_33, 0);
-
-    for(;;) {
-        bmm8563_getTime(&date);
-        printf("y: %d, m: %d, d: %d, h: %d, m:%d, s: %d\r\n", date.year, date.month, date.day, date.hour, date.minute, date.second);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        irq = bmm8563_getIRQ();
-        int16_t time_ticks = bmm8563_getTimerTime();
-        // bmm8563_getTime(&date);
-        printf("IRQ: %x, %d\r\n", irq, time_ticks);
-        if(irq) {
-            bmm8563_clearIRQ();
-        }
-    }
-}
