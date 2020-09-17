@@ -148,7 +148,7 @@ void app_main()
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
 
     char *token = NULL;
-    asprintf(&token, "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], 1);
+    asprintf(&token, "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     camera_fb_t* fb = esp_camera_fb_get();
     // const char *url = "http://192.168.0.104:5001/timer-cam/image";
