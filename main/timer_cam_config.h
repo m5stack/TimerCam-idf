@@ -88,7 +88,7 @@ typedef enum {
     kPSRAMError,
     kCamError,
     kWifiMsgError,
-    kBMM8563Error,
+    kbm8563Error,
     kNotFoundWifiMsg,
     kGroveError,
 } ErrorDetail_t;

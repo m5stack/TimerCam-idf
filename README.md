@@ -23,7 +23,7 @@ https://github.com/espressif/esp32-camera
 .
 ├── components
 │   ├── battery -> Battery ouput control and voltage monitoring 
-│   ├── bmm8563 -> RTC time control and irq wakeup setting
+│   ├── bm8563 -> RTC time control and irq wakeup setting
 │   ├── esp32-camera -> Camera control
 │   ├── led -> Led brightness control
 │   ├── network -> AP or STA connect 

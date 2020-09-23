@@ -11,23 +11,23 @@ typedef struct _rtc_data_t {
 } rtc_date_t;
 
 // Clear irq, Init 
-void bmm8563_init();
+void bm8563_init();
 
-void bmm8563_setTime(rtc_date_t* data);
+void bm8563_setTime(rtc_date_t* data);
 
-void bmm8563_getTime(rtc_date_t* data);
+void bm8563_getTime(rtc_date_t* data);
 
 // -1: disable
-void bmm8563_setDateIRQ(int8_t minute, int8_t hour, int8_t day, int8_t week);
+void bm8563_setDateIRQ(int8_t minute, int8_t hour, int8_t day, int8_t week);
 
 // sec, max time is 255 * 60
-int16_t bmm8563_setTimerIRQ(int16_t value);
+int16_t bm8563_setTimerIRQ(int16_t value);
 
 // sec, get timer reg value
-int16_t bmm8563_getTimerTime();
+int16_t bm8563_getTimerTime();
 
 // get irq status
-uint8_t bmm8563_getIRQ();
+uint8_t bm8563_getIRQ();
 
 // clear irq status
-void bmm8563_clearIRQ();
+void bm8563_clearIRQ();

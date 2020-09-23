@@ -1,4 +1,4 @@
-#include "bmm8563.h"
+#include "bm8563.h"
 #include "driver/i2c.h"
 #include <string.h>
 
@@ -67,14 +67,14 @@ static uint8_t BCD2Byte(uint8_t data) {
     return (data >> 4) * 10 + (data & 0x0f);
 }
 
-void bmm8563_init() {
+void bm8563_init() {
     i2c_init();
     i2c_write_byte(0x51, 0x00, 0x00);
     i2c_write_byte(0x51, 0x01, 0x00);
     i2c_write_byte(0x51, 0x0D, 0x00);
 }
 
-void bmm8563_setTime(rtc_date_t* data) {
+void bm8563_setTime(rtc_date_t* data) {
     if (data == NULL) {
         return ;
     }
@@ -88,7 +88,7 @@ void bmm8563_setTime(rtc_date_t* data) {
     i2c_write(0x51, 0x02, time_buf, 7);
 }
 
-void bmm8563_getTime(rtc_date_t* data) {
+void bm8563_getTime(rtc_date_t* data) {
     if (data == NULL) {
         return ;
     }
@@ -103,7 +103,7 @@ void bmm8563_getTime(rtc_date_t* data) {
 }
 
 // -1 :disable
-void bmm8563_setDateIRQ(int8_t minute, int8_t hour, int8_t day, int8_t week) {
+void bm8563_setDateIRQ(int8_t minute, int8_t hour, int8_t day, int8_t week) {
     uint8_t irq_enable = false;
     uint8_t out_buf[4] = { 0x80, 0x80, 0x80, 0x80 };
     if(minute >= 0) {
@@ -139,7 +139,7 @@ void bmm8563_setDateIRQ(int8_t minute, int8_t hour, int8_t day, int8_t week) {
 }
 
 // -1: disable
-int16_t bmm8563_setTimerIRQ(int16_t value) {
+int16_t bm8563_setTimerIRQ(int16_t value) {
     uint8_t reg_value = 0;
     i2c_read(0x51, 0x01, &reg_value, 1);
 
@@ -169,7 +169,7 @@ int16_t bmm8563_setTimerIRQ(int16_t value) {
     return value * div;
 }
 
-int16_t bmm8563_getTimerTime() {
+int16_t bm8563_getTimerTime() {
     uint8_t value = 0;
     uint8_t type_value = 0;
     i2c_read(0x51, 0x0f, &value, 1);
@@ -182,13 +182,13 @@ int16_t bmm8563_getTimerTime() {
     }
 }
 
-uint8_t bmm8563_getIRQ() {
+uint8_t bm8563_getIRQ() {
     uint8_t data;
     i2c_read(0x51, 0x01, &data, 1);
     return data;
 }
 
-void bmm8563_clearIRQ() {
+void bm8563_clearIRQ() {
     uint8_t data;
     i2c_read(0x51, 0x01, &data, 1);
     i2c_write_byte(0x51, 0x01, data & 0xf3);

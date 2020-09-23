@@ -10,7 +10,7 @@
 
 #include "timer_cam_config.h"
 #include "battery.h"
-#include "bmm8563.h"
+#include "bm8563.h"
 #include "led.h"
 #include "network.h"
 #include "uart_frame.h"
@@ -145,7 +145,7 @@ void app_main()
     led_brightness(256);
     
     uart_init();
-    bmm8563_init();
+    bm8563_init();
 
     esp_log_level_set(TAG, ESP_LOG_ERROR);
     printf("%s", CAM_LOGO);

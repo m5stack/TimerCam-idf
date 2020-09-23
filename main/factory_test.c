@@ -5,7 +5,7 @@
 #include "timer_cam_config.h"
 
 #include "battery.h"
-#include "bmm8563.h"
+#include "bm8563.h"
 #include "uart_frame.h"
 
 
@@ -78,11 +78,11 @@ static void scan_task(void *pvParameters) {
     }
 }
 
-void bmm8563_task(void *arg) {
+void bm8563_task(void *arg) {
     rtc_date_t date;
     uint8_t out_buf[4] = {0x00, 0x00, 0x00, 0x00};
     for (;;) {
-        bmm8563_getTime(&date);
+        bm8563_getTime(&date);
         out_buf[0] = date.second;
         out_buf[1] = i2c_test(0x44);
         out_buf[2] = (uint8_t)max_rssi;
@@ -112,6 +112,6 @@ void factory_test() {
     i2c_init();
 
     xTaskCreatePinnedToCore(&scan_task, "scan_task", 2048, NULL, 1, NULL, 1);
-    xTaskCreatePinnedToCore(&bmm8563_task, "rtc_task", 2048, NULL, 1, NULL, 1);
+    xTaskCreatePinnedToCore(&bm8563_task, "rtc_task", 2048, NULL, 1, NULL, 1);
 }
 
