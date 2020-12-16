@@ -11,10 +11,12 @@ typedef enum {
     NOT_CONNECT,
 } WifiConnectStatus_t;
 
+// Non-blocking
 void wifi_init_sta(const char* ssid, const char* pwd);
 
 bool wifi_wait_connect(int32_t timeout);
 
+// Non-blocking
 void wifi_init_ap(const char *ssid, const char *pwd);
 
 int GetWifiConnectStatus();

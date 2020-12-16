@@ -9,7 +9,7 @@
 #include "esp_task_wdt.h"
 
 #include "battery.h"
-#include "bmm8563.h"
+#include "bm8563.h"
 #include "led.h"
 #include "network.h"
 #include "image_post.h"

@@ -13,7 +13,6 @@
 #define LEDC_HS_TIMER           LEDC_TIMER_2
 #define LEDC_HS_MODE            LEDC_HIGH_SPEED_MODE
 #define LEDC_HS_CH0_CHANNEL     LEDC_CHANNEL_5    
-#define LEDC_TEST_DUTY          (10)
 
 void led_init(int led_gpio) {
     ledc_timer_config_t ledc_timer = {
