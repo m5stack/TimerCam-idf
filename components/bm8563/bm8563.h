@@ -31,3 +31,5 @@ uint8_t bm8563_getIRQ();
 
 // clear irq status
 void bm8563_clearIRQ();
+
+uint8_t bm8563_isReliableClock();

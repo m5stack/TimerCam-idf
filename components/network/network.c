@@ -85,7 +85,7 @@ static esp_err_t event_handler(void* ctx, system_event_t* event) {
 }
 
 bool wifi_wait_connect(int32_t timeout) {
-    EventBits_t bits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT | CONNECTED_FAIL_BIT, false, false, pdMS_TO_TICKS(timeout));
+    EventBits_t bits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, false, pdMS_TO_TICKS(timeout));
     return ((bits & CONNECTED_BIT) == CONNECTED_BIT);
 }
 

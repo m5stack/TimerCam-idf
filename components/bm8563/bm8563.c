@@ -98,7 +98,7 @@ void bm8563_getTime(rtc_date_t* data) {
     data->minute = BCD2Byte(time_buf[1] & 0x7f);
     data->hour = BCD2Byte(time_buf[2] & 0x3f);
     data->day = BCD2Byte(time_buf[3] & 0x3f);
-    data->month = BCD2Byte(time_buf[5] & 0x0f);
+    data->month = BCD2Byte(time_buf[5] & 0x1f);
     data->year = BCD2Byte(time_buf[6]) + (time_buf[5] & 0x80 ? 1900 : 2000);
 }
 
@@ -191,6 +191,12 @@ uint8_t bm8563_getIRQ() {
     uint8_t data;
     i2c_read(0x51, 0x01, &data, 1);
     return data;
+}
+
+uint8_t bm8563_isReliableClock() {
+    uint8_t data;
+    i2c_read(0x51, 0x02, &data, 1);
+    return (data & 0x80) == 0;
 }
 
 void bm8563_clearIRQ() {
