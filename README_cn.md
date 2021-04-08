@@ -1,24 +1,25 @@
 # Timer Cam Example
 
-English | [中文](README_cn.md)
+[English](README.md) | 中文
 
-## Description
+## 描述
 
-This case is developed based on the esp-idf platform. It is used for the interaction between the **TimerCAM** and the host computer software to realize the functions of real-time picture shooting and timer shooting. It supports two device connection modes: serial port and WiFi.
+该案例为基于esp-idf平台开发, 用于**TimerCAM**与上位机软件进行交互，实现图片即时拍摄，定时拍摄功能等功能，支持串口与WiFi两种设备连接模式。
 
-This library provides some basic arduino cases for **TimerCAM**, including web surveillance cameras, sleep functions, etc. **TimerCAM**  is a camera module based on ESP32, integrated with ESP32 chip and 8M-PSRAM. The camera (ov3660) with 3 million pixels can view 66.5 ° and shoot 1600 x at most 1200 resolution photo, built-in LED status indicator, featuring ultra-low power consumption design. Through RTC (BM8563), timing sleep and wake-up can be realized. sleep current can be reduced to 2μA.The battery interface is reserved on the board, and users can access the battery power supply by themselves. The module supports WiFi image transmission and USB port debugging. The bottom HY2.0-4P port output can be connected to other peripherals.
+**TimerCAM**是一款基于ESP32的摄像头模块，集成ESP32芯片，板载8M PSRAM，采用300万像素的摄像头（OV3660）可视角66.5°，最高可实现拍摄1600 x 1200分辨率的照片，带有状态指示灯，主打超低功耗设计，通过RTC(BM8563)可实现定时休眠与唤醒，休眠电流可降低至2μA，板上预留电池接口，用户可自行接入电池供电。模块支持WiFi图像传输和USB端口调试，底部HY2.0-4P端口输出，可连接其他外设。
 
-## IDF-Version support
+## IDF版本支持
 
-- ESP-IDF v3.x    Not Support
-- [ESP-IDF v4.0.1](https://github.com/espressif/esp-idf/releases/tag/v4.0.1)  Test Ok 
-- ESP-IDF v4.1.x  Not Support
+- ESP-IDF v3.x    不支持
+- [ESP-IDF v4.0.1](https://github.com/espressif/esp-idf/releases/tag/v4.0.1)   测试正常
+- ESP-IDF v4.1.x  不支持
 
 ## Cam Lib Base
 
 [reference](https://github.com/espressif/esp32-camera)
 
-## File Description
+## 项目结构
+
 ```
 .
 ├── components
@@ -64,17 +65,17 @@ s->set_quality(s, 10);
 ...
 ```
 
-Detailed view [sensor.h](components/esp32-camera/driver/include/sensor.h)
+查看详情 [sensor.h](components/esp32-camera/driver/include/sensor.h)
 
-# PC Software
+# PC上位机软件
 
-[Download & tutorial](https://docs.m5stack.com/#/en/quick_start/timer_cam/quick_start_cameratool)
+[软件下载 & 使用教程](https://docs.m5stack.com/#/en/quick_start/timer_cam/quick_start_cameratool)
 
-## PinMap
+## 管脚映射
 
-**Camera Interface PinMap**
+**摄像头驱动芯片 OV3660 接口**
 
-| *Interface*             | *Camera Pin*| *TimerCamera*  |
+| *接口*             | *Camera Pin*| *TimerCamera*  |
 | :-------------------  | :--------:| :------:  |
 | SCCB Clock            | SIOC     |IO23        |
 | SCCB Data             | SIOD     |IO25       |
@@ -95,7 +96,7 @@ Detailed view [sensor.h](components/esp32-camera/driver/include/sensor.h)
 | Power Supply 3.3V     | 3V3      | 3V3       |
 | Ground                | GND      | GND       |
 
-**GROVE Interface**
+**GROVE 接口**
 
 | *Grove*         | *TimerCamera*  | 
 | :-----------: | :------:  | 
@@ -104,20 +105,21 @@ Detailed view [sensor.h](components/esp32-camera/driver/include/sensor.h)
 | 5V            | 5V        |
 | GND           | GND       | 
 
-**LED Interface**
+**LED 接口**
 
 | *LED*         | *TimerCamera*  |
 | :-----------:| :------:  | 
 | LED_Pin      | IO2     | 
 
-**BAT Interface**
+**BAT 接口**
 
 | *BAT*         | *TimerCamera*  |
 | :-----------:| :------:  | 
 | BAT_ADC_Pin     | IO33     | 
 
-# Related Links
+# 相关链接
 
-[TimerCAM Docs](https://docs.m5stack.com/#/en/unit/timercam)
+[TimerCAM Docs](https://docs.m5stack.com/#/zh_CN/unit/timercam)
 
-[Purchase](https://m5stack-store.myshopify.com/products/esp32-psram-timer-camera-x-ov3660?_pos=2&_sid=461e48736&_ss=r)
+[官方商店&购买](https://m5stack-store.myshopify.com/products/esp32-psram-timer-camera-x-ov3660?_pos=2&_sid=461e48736&_ss=r)
+
