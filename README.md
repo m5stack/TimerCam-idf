@@ -1,3 +1,11 @@
+#############################################################################
+
+Please check this [repository](https://github.com/m5stack/M5_Camera_Examples)
+ 
+#############################################################################
+
+
+
 # Timer Cam Example
 
 English | [中文](README_cn.md)
